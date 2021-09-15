@@ -88,7 +88,7 @@ python generate.py --outdir=out --seeds=0-35 --class=1 \
     --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/cifar10.pkl
 
 # Style mixing example
-python style_mixing.py --outdir=out --rows=85,100,75,458,1500 --cols=55,821,1789,293 \
+python style_mixing.py --outdir=out --rows=85,100,458,1500 --cols=55,821,1789,293 \
     --network=https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metfaces.pkl
 ```
 
