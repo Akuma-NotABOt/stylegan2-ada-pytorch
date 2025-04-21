@@ -266,7 +266,7 @@ def training_loop(
         images = torch.cat([G_ema(z=z, c=c, noise_mode='const').cpu() for z, c in zip(grid_z, grid_c)]).numpy()
         save_image_grid(images, os.path.join(run_dir, 'fakes_init.png'), drange=[-1,1], grid_size=grid_size)'''
         # Load model and dataset
-        eeg_encoder = EEGEncoder(input_shape=(5,500), z_dim=G.z_dim).to(device)
+        eeg_encoder = EEGEncoder(input_shape=(5,512), z_dim=G.z_dim).to(device)
         eeg_encoder.eval()  # No dropout/batchnorm if present
 
         # Load EEGs from dataset
@@ -282,6 +282,7 @@ def training_loop(
             eeg_encoded_all.append(eeg_z)
 
         eeg_encoded = torch.cat(eeg_encoded_all).split(batch_gpu)
+        grid_z = eeg_encoded
 
         # Use dataset labels (mapped to int tensors)
         grid_c = torch.tensor([int(label) for _, _, label in dataset], dtype=torch.long).to(device).split(batch_gpu)
