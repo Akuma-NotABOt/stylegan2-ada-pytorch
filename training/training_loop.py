@@ -25,6 +25,42 @@ import legacy
 from metrics import metric_main
 
 #----------------------------------------------------------------------------
+import pandas as pd
+from torch.utils.data import Dataset
+
+class EEGImageDataset(Dataset):
+    def __init__(self, mapping_csv, z_dim=512):
+        self.mapping = pd.read_csv(mapping_csv)
+        self.z_dim = z_dim  # Must match G.z_dim
+        # You can add transforms if needed
+
+    def __len__(self):
+        return len(self.mapping)
+
+    def __getitem__(self, idx):
+        row = self.mapping.iloc[idx]
+        eeg = np.loadtxt(row['eeg_path'], delimiter=',')  # Shape: (5, 500)
+        eeg = torch.tensor(eeg, dtype=torch.float32)      # Convert to Tensor
+        image_path = row['image_path']
+        label = row['class']
+        return eeg, image_path, label
+    
+import torch.nn as nn
+
+class EEGEncoder(nn.Module):
+    def __init__(self, input_shape=(5, 500), z_dim=512):
+        super(EEGEncoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(5*500, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, z_dim)
+        )
+
+    def forward(self, x):  # x shape: (B, 5, 500)
+        return self.encoder(x)
+
+
 
 def setup_snapshot_image_grid(training_set, random_seed=0):
     rnd = np.random.RandomState(random_seed)
@@ -219,12 +255,37 @@ def training_loop(
     grid_c = None
     if rank == 0:
         print('Exporting sample images...')
-        grid_size, images, labels = setup_snapshot_image_grid(training_set=training_set)
+        '''grid_size, images, labels = setup_snapshot_image_grid(training_set=training_set)
         save_image_grid(images, os.path.join(run_dir, 'reals.png'), drange=[0,255], grid_size=grid_size)
         grid_z = torch.randn([labels.shape[0], G.z_dim], device=device).split(batch_gpu)
         grid_c = torch.from_numpy(labels).to(device).split(batch_gpu)
         images = torch.cat([G_ema(z=z, c=c, noise_mode='const').cpu() for z, c in zip(grid_z, grid_c)]).numpy()
-        save_image_grid(images, os.path.join(run_dir, 'fakes_init.png'), drange=[-1,1], grid_size=grid_size)
+        save_image_grid(images, os.path.join(run_dir, 'fakes_init.png'), drange=[-1,1], grid_size=grid_size)'''
+        # Load model and dataset
+        eeg_encoder = EEGEncoder(input_shape=(5,500), z_dim=G.z_dim).to(device)
+        eeg_encoder.eval()  # No dropout/batchnorm if present
+
+        # Load EEGs from dataset
+        dataset = EEGImageDataset('data_mapping.csv', z_dim=G.z_dim)
+        loader = torch.utils.data.DataLoader(dataset, batch_size=batch_gpu)
+
+        eeg_encoded_all = []
+
+        for eeg_batch, _, _ in loader:
+            eeg_batch = eeg_batch.to(device)  # shape: (B, 5, 500)
+            with torch.no_grad():
+                eeg_z = eeg_encoder(eeg_batch)  # shape: (B, G.z_dim)
+            eeg_encoded_all.append(eeg_z)
+
+        eeg_encoded = torch.cat(eeg_encoded_all).split(batch_gpu)
+
+        # Use dataset labels (mapped to int tensors)
+        grid_c = torch.tensor([int(label) for _, _, label in dataset], dtype=torch.long).to(device).split(batch_gpu)
+
+        # Generate images
+        images = torch.cat([G_ema(z=z, c=c, noise_mode='const').cpu() for z, c in zip(eeg_encoded, grid_c)]).numpy()
+        save_image_grid(images, os.path.join(run_dir, 'fakes_from_eeg.png'), drange=[-1,1], grid_size=grid_size)
+
 
     # Initialize logs.
     if rank == 0:
