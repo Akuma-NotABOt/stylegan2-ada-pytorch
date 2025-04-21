@@ -32,7 +32,7 @@ class EEGImageDataset(Dataset):
     def __init__(self, mapping_csv, z_dim=512):
         self.mapping = pd.read_csv(mapping_csv)
         self.z_dim = z_dim  # Must match G.z_dim
-        self.label_to_int = {'cube': 0, 'sphere': 1, 'cylinder': 2, 'triangle': 3, 'rectangle': 4}
+        self.label_to_int = {'cube': 0, 'cylinder': 1, 'Rectangle': 2, 'sphere': 3, 'Triangle': 4}
 
         # You can add transforms if needed
 
