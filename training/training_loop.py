@@ -32,6 +32,8 @@ class EEGImageDataset(Dataset):
     def __init__(self, mapping_csv, z_dim=512):
         self.mapping = pd.read_csv(mapping_csv)
         self.z_dim = z_dim  # Must match G.z_dim
+        self.label_to_int = {'cube': 0, 'sphere': 1, 'cylinder': 2, 'triangle': 3, 'rectangle': 4}
+
         # You can add transforms if needed
 
     def __len__(self):
@@ -42,7 +44,8 @@ class EEGImageDataset(Dataset):
         eeg = np.loadtxt(row['eeg_path'], delimiter=',')  # Shape: (5, 500)
         eeg = torch.tensor(eeg, dtype=torch.float32)      # Convert to Tensor
         image_path = row['image_path']
-        label = row['class']
+        label_str = row['class']
+        label = self.label_to_int[label_str]
         return eeg, image_path, label
     
 import torch.nn as nn
