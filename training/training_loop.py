@@ -48,11 +48,11 @@ class EEGImageDataset(Dataset):
 import torch.nn as nn
 
 class EEGEncoder(nn.Module):
-    def __init__(self, input_shape=(5, 500), z_dim=512):
+    def __init__(self, input_shape=(5, 512), z_dim=512):
         super(EEGEncoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(5*500, 1024),
+            nn.Linear(5*512, 1024),
             nn.ReLU(),
             nn.Linear(1024, z_dim)
         )
